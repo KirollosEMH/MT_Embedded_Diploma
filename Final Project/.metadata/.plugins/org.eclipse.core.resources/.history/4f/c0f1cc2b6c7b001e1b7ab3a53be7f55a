@@ -1,0 +1,39 @@
+/*
+ * timer1.c
+ *
+ *  Created on: Nov 1, 2023
+ *      Author: Dell-G5
+ */
+
+#include"timer1.h"
+#include<avr/interrupt.h>
+
+static volatile void (*timer1_callBackPtr)(void) = NULL_PTR;
+
+ISR(TIMER1_OVF_vect){
+	if(timer1_callBackPtr != NULL_PTR)
+	{
+		(*timer1_callBackPtr)();
+	}
+}
+
+ISR(TIMER1_COMPA_vect){
+	if(timer1_callBackPtr != NULL_PTR)
+	{
+		(*timer1_callBackPtr)();
+	}
+}
+
+void Timer1_init(const Timer1_ConfigType * Config_Ptr){
+
+}
+void Timer1_deInit(void){
+
+}
+void Timer1_setCallBack(void(*a_ptr)(void)){
+
+}
+
+
+
+

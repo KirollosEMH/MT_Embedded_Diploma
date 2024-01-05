@@ -1,0 +1,33 @@
+/*
+ * ControlECU.c
+ *
+ *  Created on: Nov 4, 2023
+ *      Author: Dell-G5
+ */
+#include"HAL/dcmotor.h"
+#include"HAL/external_eeprom.h"
+#include"HAL/buzzer.h"
+#include"MCAL/uart.h"
+#include"MCAL/timer1.h"
+#include"MCAL/twi.h"
+#include"avr/io.h"
+#define PASSWORD_LENGTH 5
+
+
+int main(void) {
+	GPIO_writePin(SREG,7);
+	uint8 password[PASSWORD_LENGTH],confirmPass[PASSWORD_LENGTH];
+	uint8 passIsSet=0;
+	uint8 passMatched=0;
+
+	UART_ConfigType UART_MyConfig = {_8_BIT , PARITY_DISABLED , STOP_1_BIT , 9600};
+	TWI_ConfigType	I2C_MyConfig = {0x01 , NORMAL_MODE_100Kb};
+	Timer1_ConfigType Timer1Config = {0 , 31250 , CTC_OCR1A , FCPU_256} ;
+	UART_init(&UART_MyConfig);
+
+	while(1){
+
+	}
+
+    return 0;
+}

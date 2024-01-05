@@ -1,0 +1,127 @@
+/*
+ * HMI_ECU.c
+ *
+ *  Created on: Nov 4, 2023
+ *      Author: Dell-G5
+ */
+#include"HAL/keypad.h"
+#include"HAL/lcd.h"
+#include"MCAL/timer1.h"
+#include"MCAL/uart.h"
+#include<avr/io.h>
+
+#define PASSWORD_LENGTH 5
+#define SEND_FIRST_PASSWORD 'A'
+#define SEND_SECOND_PASSWORD 'B'
+#define ARE_THEY_MATCHED 'C'
+#define MATCHED 'D'
+#define UNMATCHED 'E'
+#define SEND_MAIN_PASSWORD 'F'
+#define OPEN_DOOR 'G'
+#define CORRECT_PASSWORD 'I'
+#define WRONG_PASSWORD 'J'
+#define ALARM_MODE 'K'
+#define IS_PASSWORD_SET 'L'
+#define SETTED 'M'
+#define NOT_SETTED 'N'
+
+uint8 g_timerticks=0;
+uint8 password[5];
+
+void timer1(void){
+	g_timerticks++;
+}
+
+void enterPass(void){
+	for(int i = 0 ; i < PASSWORD_LENGTH ; i++){
+		password[i] = KEYPAD_getPressedKey();
+		if(password[i] >= '0' && password[i] <= '9'){
+			LCD_displayCharacter(password[i]);
+			_delay_ms(500);
+			LCD_moveCursor(1,i);
+			LCD_displayCharacter('*');
+		}
+		else{
+			i--;
+		}
+	}
+	while(KEYPAD_getPressedKey() != '=');
+}
+void sendPass(uint8* pass){
+	for(int i = 0 ; i < PASSWORD_LENGTH ; i++){
+		UART_sendByte(pass[i]);
+	}
+}
+int main(void){
+	GPIO_writePin(SREG,7);
+	Timer1_ConfigType Timer1Config = {0 , 31250 , CTC_OCR1A , FCPU_256};
+	UART_ConfigType UART_MyConfig = {_8_BIT , PARITY_DISABLED , STOP_1_BIT , 9600};
+
+	LCD_init();
+	UART_init(&UART_MyConfig);
+	Timer1_setCallBack(timer1);
+
+	uint8 isPassSet=0;
+	uint8 isPassCorrect;
+	LCD_displayStringRowColumn(0,0,"   DOOR LOCKER   ");
+	_delay_ms(3000);
+	UART_sendByte(IS_PASSWORD_SET);
+
+	if(UART_recieveByte()==SETTED){
+		isPassSet=1;
+	}
+	while(1){
+		if(isPassSet){
+			uint8 no_Tries=0;
+			LCD_clearScreen();
+			LCD_displayStringRowColumn(0,0,"+ : Open Door");
+			LCD_displayStringRowColumn(1,0,"- : Change Pass");
+			if(KEYPAD_getPressedKey()=='+'){
+				do {
+					uint8 isPassCorrect=0;
+					LCD_clearScreen();
+					LCD_displayString("plz Enter Pass:");
+					LCD_moveCursor(1,0);
+
+					UART_sendByte(SEND_MAIN_PASSWORD);
+					enterPass();
+					sendPass(password);
+					if (UART_recieveByte()==CORRECT_PASSWORD) {
+						isPassCorrect=1;
+						UART_sendByte(OPEN_DOOR);
+						Timer1_init(&Timer1Config);
+
+						LCD_clearScreen();
+						LCD_displayStringRowColumn(0,0,"Unlocking  ");
+						while(g_timerticks != 15);
+						g_timerticks = 0;
+						Timer1_deInit();
+						Timer1_init(&Timer1Config);
+						LCD_displayStringRowColumn(0,0,"Holding    ");
+						while(g_timerticks != 3);
+						g_timerticks = 0;
+						Timer1_deInit();
+						Timer1_init(&Timer1Config);
+						LCD_displayStringRowColumn(0,0,"Locking    ");
+						while(g_timerticks != 15);
+						g_timerticks = 0;
+						Timer1_deInit();
+					}
+					else {
+						no_Tries++;
+
+						LCD_clearScreen();
+						LCD_displayString("Wrong Password!");
+						_delay_ms(2000);
+
+					}
+
+				} while ((no_Tries < 3) && !isPassCorrect);
+			}
+		}
+		else {
+
+		}
+	}
+}
+

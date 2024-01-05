@@ -1,0 +1,138 @@
+/*
+ * ControlECU.c
+ *
+ *  Created on: Nov 4, 2023
+ *      Author: Dell-G5
+ */
+#include"HAL/dcmotor.h"
+#include"HAL/external_eeprom.h"
+#include"HAL/buzzer.h"
+#include"MCAL/uart.h"
+#include"MCAL/timer1.h"
+#include"MCAL/twi.h"
+#include"avr/io.h"
+
+#define PASSWORD_LENGTH 5
+#define SEND_FIRST_PASSWORD 	'a'
+#define SEND_SECOND_PASSWORD 	'b'
+#define ARE_THEY_MATCHED 		'c'
+#define MATCHED 				'd'
+#define UNMATCHED 				'e'
+#define SEND_MAIN_PASSWORD 		'f'
+#define OPEN_DOOR 				'g'
+#define CORRECT_PASSWORD 		'i'
+#define WRONG_PASSWORD 			'j'
+#define ALARM_MODE 				'k'
+#define IS_PASSWORD_SET 		'l'
+#define SETTED 					'm'
+#define NOT_SETTED 				'n'
+
+
+uint8 g_timerticks=0;
+
+void timer1(void){
+	g_timerticks++;
+}
+void receive_password(uint8 *PasswordArr){
+	for(uint8 i = 0 ; i < PASSWORD_LENGTH ; i++){
+		PasswordArr[i] = UART_recieveByte();
+	}
+}
+int main(void) {
+	GPIO_writePin(SREG,7);
+	uint8 password[PASSWORD_LENGTH],confirmPass[PASSWORD_LENGTH];
+	uint8 isPassSet=0;
+	uint8 isPassMatched=0;
+
+	UART_ConfigType UART_Config = {_8_BIT , PARITY_DISABLED , STOP_1_BIT , 9600};
+	TWI_ConfigType	I2C_Config = {0x01 , NORMAL_MODE_100Kb};
+	Timer1_ConfigType Timer1_Config = {0 , 31250 , CTC_OCR1A , FCPU_256} ;
+	UART_init(&UART_Config);
+	TWI_init(&I2C_Config);
+	Buzzer_init();
+	DcMotor_init();
+	while(1){
+		uint8 receivedByte = UART_receiveByte();
+
+		if (receivedByte == IS_PASSWORD_SET) {
+			PasswordSetFlag = 0;
+			/* Reading password set flag from EEPROM */
+			EEPROM_readByte(PASSWORD_SET_FLAG_LOCATION, &PasswordSetFlag);
+
+			if (PasswordSetFlag) {
+				UART_sendByte(SETTED);
+			} else {
+				UART_sendByte(NOT_SETTED);
+			}
+		} else if (receivedByte == TAKE_THE_FIRST_PASSWORD) {
+			receive_password(Password_Arr1);
+		} else if (receivedByte == TAKE_THE_SECOND_PASSWORD) {
+			receive_password(Password_Arr2);
+		} else if (receivedByte == ARE_THEM_MATCHED) {
+			matching_flag = 1;
+			for (MultiUsedCounter = 0; MultiUsedCounter < 5; MultiUsedCounter++) {
+				if (Password_Arr1[MultiUsedCounter] != Password_Arr2[MultiUsedCounter]) {
+					matching_flag = 0;
+					break;
+				}
+			}
+
+			if (matching_flag) {
+				UART_sendByte(MATCHED);
+				/* Store the password set flag into EEPROM */
+				EEPROM_writeByte(PASSWORD_SET_FLAG_LOCATION, matching_flag);
+				_delay_ms(15);
+
+				for (MultiUsedCounter = 0; MultiUsedCounter < 5; MultiUsedCounter++) {
+					EEPROM_writeByte(MultiUsedCounter, Password_Arr1[MultiUsedCounter]);
+					_delay_ms(10);
+				}
+			} else {
+				UART_sendByte(UNMATCHED);
+			}
+			_delay_ms(10);
+		} else if (receivedByte == TAKE_MAIN_PASSWORD) {
+			matching_flag = 1;
+			receive_password(Password_Arr1);
+			for (MultiUsedCounter = 0; MultiUsedCounter < 5; MultiUsedCounter++) {
+				EEPROM_readByte(MultiUsedCounter, &PasswordTempVar);
+				if (Password_Arr1[MultiUsedCounter] != PasswordTempVar)
+					matching_flag = 0;
+				_delay_ms(10);
+			}
+
+			if (matching_flag)
+				UART_sendByte(CORRECT_PASSWORD);
+			else
+				UART_sendByte(WRONG_PASSWORD);
+		} else if (receivedByte == OPEN_DOOR) {
+			Timer1_init(&Timer1Config);
+			L293D_Rotate(1, CW, 100);
+			while (Timer1Ticks != 15); /* Waiting for 15 seconds */
+			Timer1Ticks = 0;
+			Timer1_deInit();
+			Timer1_init(&Timer1Config);
+			L293D_Rotate(1, OFF, 0);
+			while (Timer1Ticks != 3); /* Waiting for 3 seconds */
+			Timer1Ticks = 0;
+			Timer1_deInit();
+			Timer1_init(&Timer1Config);
+			L293D_Rotate(1, A_CW, 100);
+			while (Timer1Ticks != 15); /* Waiting for 15 seconds */
+			Timer1Ticks = 0;
+			Timer1_deInit();
+			L293D_Rotate(1, OFF, 0);
+		} else if (receivedByte == ALARM_MODE) {
+			Timer1_init(&Timer1Config);
+			BUZZER_on();
+			while (Timer1Ticks != 60) /* Waiting for 60 seconds */
+			{
+				;
+			}
+			Timer1Ticks = 0;
+			Timer1_deInit();
+			BUZZER_off();
+		}
+
+	}
+}

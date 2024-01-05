@@ -1,0 +1,59 @@
+/*
+ * ControlECU.c
+ *
+ *  Created on: Nov 4, 2023
+ *      Author: Dell-G5
+ */
+#include"HAL/dcmotor.h"
+#include"HAL/external_eeprom.h"
+#include"HAL/buzzer.h"
+#include"MCAL/uart.h"
+#include"MCAL/timer1.h"
+#include"MCAL/twi.h"
+#include"avr/io.h"
+
+#define PASSWORD_LENGTH 5
+#define SEND_FIRST_PASSWORD 	'a'
+#define SEND_SECOND_PASSWORD 	'b'
+#define ARE_THEY_MATCHED 		'c'
+#define MATCHED 				'd'
+#define UNMATCHED 				'e'
+#define SEND_MAIN_PASSWORD 		'f'
+#define OPEN_DOOR 				'g'
+#define CORRECT_PASSWORD 		'i'
+#define WRONG_PASSWORD 			'j'
+#define ALARM_MODE 				'k'
+#define IS_PASSWORD_SET 		'l'
+#define SETTED 					'm'
+#define NOT_SETTED 				'n'
+
+
+uint8 g_timerticks=0;
+
+void timer1(void){
+	g_timerticks++;
+}
+void receive_password(uint8 *PasswordArr){
+	for(uint8 i = 0 ; i < PASSWORD_LENGTH ; i++){
+		PasswordArr[i] = UART_recieveByte();
+	}
+}
+int main(void) {
+	GPIO_writePin(SREG,7);
+	uint8 password[PASSWORD_LENGTH],confirmPass[PASSWORD_LENGTH];
+	uint8 isPassSet=0;
+	uint8 isPassMatched=0;
+
+	UART_ConfigType UART_Config = {_8_BIT , PARITY_DISABLED , STOP_1_BIT , 9600};
+	TWI_ConfigType	I2C_Config = {0x01 , NORMAL_MODE_100Kb};
+	Timer1_ConfigType Timer1_Config = {0 , 31250 , CTC_OCR1A , FCPU_256} ;
+	UART_init(&UART_Config);
+	TWI_init(&I2C_Config);
+	Buzzer_init();
+	DcMotor_init();
+	while(1){
+		if(UART_recieveByte()==IS_PASSWORD_SET){
+
+		}
+	}
+}

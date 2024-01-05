@@ -1,0 +1,16 @@
+/*
+ * ControlECU.c
+ *
+ *  Created on: Nov 4, 2023
+ *      Author: Dell-G5
+ */
+#include"dcmotor.h"
+#include"external_eeprom.h";
+#include"buzzer.h"
+#include"uart.h"
+#include"timer1.h"
+#include"twi.h"
+
+int main(void){
+
+}
